@@ -6,6 +6,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression 
+from sklearn import metrics
 
 # data provided by musicoset link:https://marianaossilva.github.io/DSW2019/
 
@@ -38,15 +39,9 @@ accFeaDf.describe()
 
 #merge dataframes with primary_key 'song_id'
 df = pd.merge(left=songsDf, right=accFeaDf, how='outer', on='song_id')
-df.head()
-df.describe()
-df.info()
 
 #merge dataframes with primary_key 'artist_id' to get genre
 allDf = pd.merge(left=df, right=artistsDf, how='outer', on='artist_id')
-allDf.head()
-allDf.describe()
-allDf.info()
 
 #distribution of song popularity
 sns.set_style('whitegrid')
@@ -61,28 +56,51 @@ sns.displot(allDf['log2_song_pop'])
 plt.show()
 
 #pairplot to check for associations
-sns.pairplot(data=allDf, y_vars=['log10_song_pop'], x_vars=['duration_ms', 'acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'loudness',\
-    'speechiness', 'valence'])
-plt.show()
+# sns.pairplot(data=allDf, y_vars=['log10_song_pop'], x_vars=['duration_ms', 'acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'loudness',\
+#     'speechiness', 'valence'])
+# plt.show()
 
 #from the visualization a pattern isn't present between song features and song popularity....
 
 sns.pairplot(data=allDf, vars=['duration_ms', 'acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'loudness', 'speechiness', 'valence'])
 plt.show()
 
+#check correlation matrix
+sns.heatmap(accFeaDf.corr())
+plt.show()
+
+#seems like something is going on with energy and loudness
 sns.lmplot(x='energy', y='loudness', data=allDf)
 plt.show()
 
 #seems like there is a positive association between energy and loudness.... let's check
-X = accFeaDf['energy']
-y = accFeaDf['loudness']
+#reshape data for single predictor model
+X = accFeaDf['energy'].values.reshape(-1,1)
+y = accFeaDf['loudness'].values.reshape(-1,1)
 
-sns.displot(X)
-plt.show()
-sns.displot(y)
+#check shape
+X.shape
+y.shape
 
-
+#split the train and test data
 X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=.4)
 
+#identify and fit the model
 lm = LinearRegression()
-lm.fit(X_train, y_train)
+lm.fit(X=X_train, y=y_train)
+
+#check intercept and coefficient
+print(lm.intercept_)
+print(lm.coef_)
+
+#check results
+y_pred = lm.predict(X_test)
+
+results = pd.DataFrame({'Actual': y_test.flatten(), 'Predicted': y_pred.flatten(),})
+results
+
+plt.scatter(X_test, y_test, color='gray')
+plt.plot(X_test, y_pred, color='r', linewidth=2)
+plt.show()
+
+print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
